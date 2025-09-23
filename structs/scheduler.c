@@ -24,7 +24,7 @@ void add_process(Scheduler* scheduler, Process* process) {
     scheduler->all_processes[scheduler->process_count-1] = process;
     if (process->start_time <= scheduler->current_tick) {
         in_queue(scheduler->high_queue, process);
-        process->current_queue = 0; // Alta prioridad
+        // process->current_queue = 0; // Alta prioridad
     }
 }
 

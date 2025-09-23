@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../structs/scheduler.h"
-#include "../io_utils/io_utils.h"
+#include "../utils/io_utils.h"
 
 
 int main(int argc, char* argv[]) {

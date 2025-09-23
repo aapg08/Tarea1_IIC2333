@@ -20,6 +20,7 @@ void read_input_file(const char* filename, Scheduler** scheduler) {
     int q_parameter;
     if (fgets(line, sizeof(line), file)) {
         q_parameter = atoi(line);
+        printf("q_parameter: %d\n", q_parameter);
         *scheduler = create_scheduler(q_parameter);
     } else {
         fprintf(stderr, "Error reading q parameter\n");
@@ -31,6 +32,7 @@ void read_input_file(const char* filename, Scheduler** scheduler) {
     int process_count;
     if (fgets(line, sizeof(line), file)) {
         process_count = atoi(line);
+        printf("process_count: %d\n", process_count);
     } else {
         fprintf(stderr, "Error reading process count\n");
         fclose(file);
@@ -41,6 +43,7 @@ void read_input_file(const char* filename, Scheduler** scheduler) {
     int event_count;
     if (fgets(line, sizeof(line), file)) {
         event_count = atoi(line);
+        printf("event_count: %d\n", event_count);
     } else {
         fprintf(stderr, "Error reading event count\n");
         fclose(file);
@@ -65,13 +68,15 @@ void read_input_file(const char* filename, Scheduler** scheduler) {
             exit(EXIT_FAILURE);
         }
 
+        printf("Process: %s %d %d %d %d %d %d\n", name, pid, start_time, burst_time, total_bursts, io_wait, deadline);
+
         // Crear y agregar el proceso al scheduler
         Process* new_process = create_process(name, pid, start_time, burst_time, total_bursts, io_wait, deadline);
         add_process(*scheduler, new_process);
     }
 
     // 5. Leer los N eventos
-    for (int i=o; i < event_count; i++) {
+    for (int i=0; i < event_count; i++) {
         if (!fgets(line, sizeof(line), file)) {
             fprintf(stderr, "Error reading event data\n");
             fclose(file);
@@ -86,6 +91,8 @@ void read_input_file(const char* filename, Scheduler** scheduler) {
             fclose(file);
             exit(EXIT_FAILURE);
         }
+
+        printf("Event: pid=%d, event_time=%d\n", pid, event_time);
 
         // event_time corresponde al tick en que el proceso llega
         add_event(*scheduler, pid, event_time);
@@ -118,7 +125,7 @@ void write_output_file(const char* filename, Scheduler* scheduler) {
             process->name,
             process->pid,
             state_str,
-            process->interruptions
+            process->interruptions,
             process->turnaround_time,
             process->response_time,
             process->waiting_time);

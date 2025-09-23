@@ -52,6 +52,6 @@ void update_process_priority(Process* process, int current_tick) {
         // Para evitar la divición por cero
         process->priority = 0.0; 
     } else {
-        process->priority = (1.0 / time_until_deadline) + bursts_remaining;
+        process->priority = (1.0 / time_until_deadline) + burst_remaining;
     }
 }
