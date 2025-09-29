@@ -30,6 +30,12 @@ typedef struct Process{
     // Para ordenar los procesos en las colas
     double priority; // Prioridad 
 
+    int remaining_io; // Tiempo actual restante de i/o
+    int remaining_burst; // Tiempo restante de la ráfaga actual
+    int remaining_quantum; // Tiempo restante del quantum actual
+    int max_priority; // En caso de haber sido sacado por un evento, tendrá valor 1 (true) para poner primero en la cola HIGH
+    int last_CPU_out; // Tick en que salió por última vez de la CPU
+
     struct Process* next;
 } Process;
 
@@ -37,6 +43,6 @@ Process* create_process(char* name, int pid, int start_time, int burst_time,
     int total_bursts, int io_wait, int deadline);
 void free_process(Process* process);
 void update_process_priority(Process* process, int current_tick);
-
+void start_running_process(Process* process, int quantum, int current_tick);
 
 #endif

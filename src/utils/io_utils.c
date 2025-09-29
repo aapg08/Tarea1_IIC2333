@@ -109,8 +109,8 @@ void write_output_file(const char* filename, Scheduler* scheduler) {
     }
 
     // Escribir los procesos en el archivo de salida
-    for (int i=0; i < scheduler->process_count; i++) {
-        Process* process = scheduler->all_processes[i];
+    for (int i=0; i < scheduler->finished_count; i++) {
+        Process* process = scheduler->finished_processes[i];
         const char* state_str;
         switch (process->state) {
             case FINISHED: state_str = "FINISHED"; break;
@@ -158,6 +158,7 @@ void free_scheduler(Scheduler* scheduler) {
             free_process(scheduler->all_processes[i]);
         }
     }
+    free(scheduler->finished_processes);
     free(scheduler->all_processes);
 
     free(scheduler);

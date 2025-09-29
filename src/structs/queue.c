@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "queue.h"
+#include "process.h"
 
 Queue* create_queue(int quantum) {
     Queue* new_queue = (Queue*)malloc(sizeof(Queue));
@@ -111,6 +112,108 @@ Process* dequeue_highest_priority(Queue* queue) {
         queue->size--;
         return highest_priority_process;
     }
+}
+
+void rearrange_queue(Queue* queue) {
+    if (is_empty(queue)) return;
+    // Crear un array temporal para almacenar los procesos
+    Process** processes = calloc(queue->size, sizeof(Process*));
+    int index = 0;
+    Process* current = queue->head;
+    Process* first_node = NULL;
+    while (current != NULL) {
+        Process* next = current->next;
+        // Sacar de su posicion actual
+        remove_from_queue(queue, current);
+        if (current->max_priority) {
+            // Insertar al inicio
+            first_node = current; // Guardo para insertarlo al final y no moleste con el resto del ordenamiento
+            current->max_priority = 0; // Resetear el flag
+        } else {
+            processes[index] = current;
+            index++;
+        }
+        current = next;
+    }
+    // Ordenamiento por inserción - base de primera inserción
+    Process* prev;
+    in_queue(queue, processes[0]);
+    for (int i = 1; i < index; i++) {
+        // Recorro la cola
+        current = queue->head;
+        prev = NULL;
+        int inserted = 0;
+        while (current) {
+            if ((processes[i]->priority == current->priority && processes[i]->pid < current->pid) || (processes[i]->priority < current->priority)) {
+                if (prev == NULL) {
+                    processes[i]->next = queue->head;
+                    queue->head = processes[i];
+                } else {
+                    prev->next = processes[i];
+                    processes[i]->next = current;
+                }
+                inserted = 1;
+                break;
+            }
+            prev = current;
+            current = current->next;
+        }
+        if (!inserted) { // Insercion al final
+            in_queue(queue, processes[i]);
+        }
+        else {
+            queue->size++;
+        }
+    }
+    // Si es que existia el nodo con maxima prioridad
+    if (first_node) {
+        first_node->next = queue->head;
+        queue->head = first_node;
+        queue->size++;
+    }
+    free(processes);
+    return;
+}
+
+void update_queue_priorities(Queue* queue, int current_tick)
+{
+    int process_counter = queue->size;
+    Process* current_node = queue->head;
+    while (process_counter > 0)
+    {
+        update_process_priority(current_node, current_tick);
+        current_node = current_node->next;
+        process_counter--;
+    }
+    rearrange_queue(queue);
+    return;
+}
+
+void start_process_from_queue(Queue* queue, Process* process) {
+    if (is_empty(queue) || (process->state == RUNNING)) return;
+    Process* current = queue->head;
+    while (current != NULL) {
+        if (current->pid == process->pid) {
+            remove_from_queue(queue, current);
+            start_running_process(current, queue->quantum, process->last_CPU_out);
+            return;
+        }
+        current = current->next;
+    }
+    return;
+}
+
+Process* start_process_by_priority(Queue* queue, int tick) {
+    Process* current = queue->head;
+    while (current != NULL){
+        if (current->state == READY) {
+            remove_from_queue(queue, current);
+            start_running_process(current, queue->quantum, tick);
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
 }
 
 void free_queue(Queue* queue) {

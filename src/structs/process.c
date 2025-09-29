@@ -21,6 +21,12 @@ Process* create_process(char* name, int pid, int start_time, int burst_time,
     new_process->response_time = -1; // No ha entrado a CPU
     new_process->waiting_time = 0;
 
+    new_process->remaining_io = 0; // Como luego del tiempo de inicio pasa a estado READY, su io parte en 0
+    new_process->remaining_burst = burst_time;
+    new_process->remaining_quantum = 0; // Se asigna al entrar a CPU
+    new_process->max_priority = 0; // Inicialmente no tiene máxima prioridad
+    new_process->last_CPU_out = -1; // No ha salido de CPU aún
+
     new_process->bursts_completed = 0; // Inicialmente no ha completado ninguna ráfaga
     new_process->priority = 0.0; // Prioridad inicial temporal
 
@@ -54,4 +60,17 @@ void update_process_priority(Process* process, int current_tick) {
     } else {
         process->priority = (1.0 / time_until_deadline) + burst_remaining;
     }
+}
+
+void start_running_process(Process* process, int quantum, int current_tick) {
+    process->state = RUNNING;
+    if (process->response_time == -1) {
+        process->response_time = current_tick - process->start_time + 1;
+    }
+    if (process->remaining_burst > 0) { // Si la ultima vez acabó su burst, el quantum no se resetea
+        process->remaining_quantum = quantum;
+    } else {
+        process->remaining_burst = process->burst_time; // Reseteo el burst time
+    }
+    return;
 }
