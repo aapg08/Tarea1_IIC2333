@@ -4,6 +4,7 @@
 #include "../structs/scheduler.h"
 
 void read_input_file(const char* filename, Scheduler** scheduler);
+int compare_process_pid(const void* a, const void* b);
 void write_output_file(const char* filename, Scheduler* scheduler);
 void free_scheduler(Scheduler* scheduler);
 

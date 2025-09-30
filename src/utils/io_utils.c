@@ -100,6 +100,12 @@ void read_input_file(const char* filename, Scheduler** scheduler) {
     fclose(file);
 }
 
+// Función auxiliar para ordenar procesos por PID
+int compare_process_pid(const void* a, const void* b) {
+    Process* pa = *(Process**)a;
+    Process* pb = *(Process**)b;
+    return pa->pid - pb->pid;
+}
 
 void write_output_file(const char* filename, Scheduler* scheduler) {
     FILE* file = fopen(filename, "w");
@@ -107,6 +113,8 @@ void write_output_file(const char* filename, Scheduler* scheduler) {
         perror("Error opening output file");
         return;
     }
+    // Ordenamos por PID los procesos finalizados
+    qsort(scheduler->finished_processes, scheduler->finished_count, sizeof(Process*), compare_process_pid);
 
     // Escribir los procesos en el archivo de salida
     for (int i=0; i < scheduler->finished_count; i++) {
