@@ -20,6 +20,7 @@ typedef struct Process{
     int bursts_completed; // Número de ráfagas completadas
     int io_wait; // Tiempo de espera para I/O
     int deadline;
+    int quantum; // Quantum asignado
 
     // Para el output
     int interruptions;
@@ -35,6 +36,10 @@ typedef struct Process{
     int remaining_quantum; // Tiempo restante del quantum actual
     int max_priority; // En caso de haber sido sacado por un evento, tendrá valor 1 (true) para poner primero en la cola HIGH
     int last_CPU_out; // Tick en que salió por última vez de la CPU
+    int queue; // Flag para identificar la cola en la que estuvo y a la que va a reingresar (0 = HIGH, 1 = LOW)
+    int finished_burst; // Flag para ver si en su ultima ejecucion terminó su ráfaga (1 = true, 0 = false)
+    int finished_quantum; // Flag para ver si en su ultima ejecucion terminó su quantum (1 = true, 0 = false)
+    int already_finished; // Flag para ver si ya terminó alguna vez (1 = true, 0 = false)
 
     struct Process* next;
 } Process;

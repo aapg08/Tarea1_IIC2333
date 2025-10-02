@@ -4,7 +4,7 @@
 #include "scheduler.h"
 #include "queue.h"
 
-Scheduler* create_scheduler(int q_parameter) {
+Scheduler* create_scheduler(int q_parameter, int n_events) {
     Scheduler* new_scheduler = (Scheduler*)malloc(sizeof(Scheduler));
     new_scheduler->high_queue = create_queue(2*q_parameter); // Cola de alta prioridad
     new_scheduler->low_queue = create_queue(q_parameter); // Cola de baja prioridad
@@ -18,6 +18,8 @@ Scheduler* create_scheduler(int q_parameter) {
     new_scheduler->finished_count = 0;
     new_scheduler->out_process = NULL;
     new_scheduler->active_event = NULL;
+    new_scheduler->event_count = n_events;
+    new_scheduler->triggered_events = 0;
     return new_scheduler;
 }
 
@@ -52,26 +54,6 @@ void add_event(Scheduler* scheduler, int pid, int tick) {
     }
 }
 
-void add_finished_process(Scheduler* scheduler, Process* process) {
-    if (!scheduler || !process) return;
-    // Recorrer lista de procesos muertos para reubicar si lo encuentra
-    for (int i = 0; i < scheduler->finished_count; i++) {
-        if (scheduler->finished_processes[i]->pid == process->pid) {
-            // Muevo todos los procesos a la izquierda
-            if (i < scheduler->finished_count - 1) {
-                scheduler->finished_processes[i] = scheduler->finished_processes[i + 1];
-            } else {
-                scheduler->finished_processes[i] = process;
-                return;
-            }
-        }
-    }
-    scheduler->finished_count++;
-    scheduler->finished_processes = realloc(scheduler->finished_processes, scheduler->finished_count * sizeof(Process*));
-    scheduler->finished_processes[scheduler->finished_count-1] = process;
-    return;
-}
-
 void remove_dead_processes(Scheduler* scheduler, Queue* queue) {
     Process* current_node = queue->head;
     while (current_node != NULL) {
@@ -79,7 +61,7 @@ void remove_dead_processes(Scheduler* scheduler, Queue* queue) {
         if (current_node->deadline <= scheduler->current_tick) {
             current_node->state = DEAD;
             current_node->turnaround_time = scheduler->current_tick - current_node->start_time;
-            add_finished_process(scheduler, current_node);
+            scheduler->finished_count++;
             remove_from_queue(queue, current_node);
         }
         current_node = next_node;
@@ -88,8 +70,17 @@ void remove_dead_processes(Scheduler* scheduler, Queue* queue) {
 }
 
 void terminate_running_process(Scheduler* scheduler) {
-    scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time;
-    add_finished_process(scheduler, scheduler->running_process);
+    if (scheduler->running_process->already_finished == 0) {
+        scheduler->running_process->already_finished = 1;
+        if (scheduler->running_process->state == FINISHED) { // Asumo que si se murio entonces no ejecuto nada
+            scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time + 1;
+        } else if (scheduler->running_process->state == DEAD) {
+            scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time + 1;
+        }
+    } else {
+        scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time;
+    }
+    scheduler->finished_count++;
     scheduler->running_process = NULL;
     return;
 }
@@ -106,11 +97,11 @@ void find_active_event(Scheduler* scheduler) {
     while (current_event != NULL) {
         if (current_event->tick == scheduler->current_tick) {
             scheduler->active_event = current_event;
+            scheduler->triggered_events++;
             return;
         }
         current_event = current_event->next;
     }
-    scheduler->active_event = NULL;
     return;
 }
 
@@ -139,7 +130,9 @@ void start_processes(Scheduler* scheduler) {
         current_process = scheduler->all_processes[i];
         if (current_process->start_time == scheduler->current_tick) {
             in_queue(scheduler->high_queue, current_process); // Cuando el proceso entre a la cola por primera vez lo hará a HIGH
-            current_process->remaining_quantum = scheduler->high_queue->quantum;
+            current_process->quantum = scheduler->high_queue->quantum; // Se le asigna el quantum de la cola HIGH
+            current_process->queue = 0;
+            current_process->remaining_burst = current_process->burst_time; // Seteo el burst time
         }
     }
     return;
@@ -153,6 +146,8 @@ void upqueue_processes(Scheduler* scheduler) {
         if ((current_node->deadline * 2) < (scheduler->current_tick - current_node->last_CPU_out)) { 
             remove_from_queue(scheduler->low_queue, current_node);
             in_queue(scheduler->high_queue, current_node);
+            current_node->quantum = scheduler->high_queue->quantum; // Se le asigna el quantum de la cola HIGH
+            current_node->queue = 0;
         }
         current_node = next_node;
         process_counter--;
@@ -172,8 +167,9 @@ void start_event_process(Scheduler* scheduler) {
     start_process_from_queue(scheduler->high_queue, current_process);
     start_process_from_queue(scheduler->low_queue, current_process);
     // Si no está en ninguna cola es porque termino o murió; si terminó va a salir immediatamente de la CPU por remaining time <= 0, y si murió tambien sale immediatamente por deadline
-    if (current_process->state != RUNNING) {
+    if (current_process->state == FINISHED || current_process->state == DEAD) {
         current_process->state = RUNNING;
+        scheduler->finished_count--; // Como lo voy a "revivir", momentaneamente lo saco de la cuenta de procesos terminados
     }
     scheduler->running_process = current_process;
     scheduler->active_event = NULL;

@@ -21,7 +21,6 @@ void read_input_file(const char* filename, Scheduler** scheduler) {
     if (fgets(line, sizeof(line), file)) {
         q_parameter = atoi(line);
         printf("q_parameter: %d\n", q_parameter);
-        *scheduler = create_scheduler(q_parameter);
     } else {
         fprintf(stderr, "Error reading q parameter\n");
         fclose(file);
@@ -44,6 +43,7 @@ void read_input_file(const char* filename, Scheduler** scheduler) {
     if (fgets(line, sizeof(line), file)) {
         event_count = atoi(line);
         printf("event_count: %d\n", event_count);
+        *scheduler = create_scheduler(q_parameter, event_count);
     } else {
         fprintf(stderr, "Error reading event count\n");
         fclose(file);
@@ -113,12 +113,12 @@ void write_output_file(const char* filename, Scheduler* scheduler) {
         perror("Error opening output file");
         return;
     }
-    // Ordenamos por PID los procesos finalizados
-    qsort(scheduler->finished_processes, scheduler->finished_count, sizeof(Process*), compare_process_pid);
+    // Ordenamos por PID los procesos finalizados -> como volvi a la linea original, creo que ya no es necesario sumar po id
+    // qsort(scheduler->finished_processes, scheduler->finished_count, sizeof(Process*), compare_process_pid);
 
     // Escribir los procesos en el archivo de salida
-    for (int i=0; i < scheduler->finished_count; i++) {
-        Process* process = scheduler->finished_processes[i];
+    for (int i=0; i < scheduler->process_count; i++) {
+        Process* process = scheduler->all_processes[i];
         const char* state_str;
         switch (process->state) {
             case FINISHED: state_str = "FINISHED"; break;

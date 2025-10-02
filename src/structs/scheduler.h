@@ -23,12 +23,13 @@ typedef struct Scheduler {
     int finished_count; // Cantidad de procesos terminados
     Process* out_process; // Proceso que acaba de salir de la CPU para manejo mas simple
     Event* active_event;
+    int event_count;
+    int triggered_events;
 } Scheduler;
 
-Scheduler* create_scheduler(int q_parameter);
+Scheduler* create_scheduler(int q_parameter, int n_events);
 void add_process(Scheduler* scheduler, Process* process);
 void add_event(Scheduler* scheduler, int pid, int tick);
-void add_finished_process(Scheduler* scheduler, Process* process);
 void remove_dead_processes(Scheduler* scheduler, Queue* queue);
 void terminate_running_process(Scheduler* scheduler);
 void take_out_running_process(Scheduler* scheduler);

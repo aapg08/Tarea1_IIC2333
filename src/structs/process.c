@@ -29,6 +29,11 @@ Process* create_process(char* name, int pid, int start_time, int burst_time,
 
     new_process->bursts_completed = 0; // Inicialmente no ha completado ninguna ráfaga
     new_process->priority = 0.0; // Prioridad inicial temporal
+    new_process->queue = 0; // Por primera vez deberá entrar a HIGH
+    new_process->quantum = 0; // Se asigna al entrar a CPU
+    new_process->finished_burst = 0; // Inicialmente no ha terminado su ráfaga
+    new_process->finished_quantum = 0; // Inicialmente no ha terminado su quantum
+    new_process->already_finished = 0; // Inicialmente no ha terminado ninguna vez
 
     new_process->next = NULL;
 
@@ -67,10 +72,14 @@ void start_running_process(Process* process, int quantum, int current_tick) {
     if (process->response_time == -1) {
         process->response_time = current_tick - process->start_time + 1;
     }
-    if (process->remaining_burst > 0) { // Si la ultima vez acabó su burst, el quantum no se resetea
-        process->remaining_quantum = quantum;
+    if (process->finished_burst == 0) { // Si la ultima vez acabó su burst, el quantum no se resetea
+        if (process->finished_quantum == 1) { // Si la ultima vez acabó su quantum, el quantum se resetea, para asegurar caso borde por evento
+            process->remaining_quantum = quantum;
+            process->finished_quantum = 0; // Reseteo el flag
+        }
     } else {
         process->remaining_burst = process->burst_time; // Reseteo el burst time
+        process->finished_burst = 0;
     }
     return;
 }

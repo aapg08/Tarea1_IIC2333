@@ -1,8 +1,8 @@
+.DS_Store
+*/.DS_Store
 obj/*
 .devcontainer/*
 .vscode/*
 *.o
 *.txt
-DCCambios
-*/.DS_Store
-.DS_Store
+
