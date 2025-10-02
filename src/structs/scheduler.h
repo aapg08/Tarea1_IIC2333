@@ -25,6 +25,7 @@ typedef struct Scheduler {
     Event* active_event;
     int event_count;
     int triggered_events;
+    int added_to_queue;
 } Scheduler;
 
 Scheduler* create_scheduler(int q_parameter, int n_events);

@@ -31,47 +31,54 @@ int main(int argc, char* argv[]) {
         remove_dead_processes(scheduler, scheduler->low_queue);
         // Revsion de proceso en CPU
         if (scheduler->running_process != NULL) {
-            scheduler->running_process->remaining_burst--;
-            scheduler->running_process->remaining_quantum--;
+            if (scheduler->running_process->response_time == -1) {
+                    scheduler->running_process->response_time = scheduler->current_tick - scheduler->running_process->start_time;
+                }
             // Si alcanzó su deadline (salida forsoza -> DEAD)
-            if (scheduler->running_process->deadline <= scheduler->current_tick) {
+            if (scheduler->running_process->deadline + 1 <= scheduler->current_tick) {
                 scheduler->running_process->state = DEAD;
                 terminate_running_process(scheduler);
-            } else if (scheduler->running_process->bursts_completed >= scheduler->running_process->total_bursts) { // Caso en que lo volvieran a llamar y su deadline no haya llegado
-                scheduler->running_process->state = FINISHED;
-                scheduler->running_process->finished_burst = 1; // Marco que terminó su ráfaga
-                terminate_running_process(scheduler);
-            } else if (scheduler->running_process->remaining_burst <= 0) { // Termino su CPU burst (-> WAITING o FINISHED)
-                scheduler->running_process->bursts_completed++; // Revisar si aumenta el n° de interrupciones y rafagas, si no, editar
-                // scheduler->running_process->interruptions++; // En ambos casos sale de CPU asi que asumo cuentan como interrupciones
-                // Si terminó todas sus rafagas pasará a FINISHED
-                if (scheduler->running_process->bursts_completed >= scheduler->running_process->total_bursts) {
+            } else {
+                if (scheduler->running_process->bursts_completed >= scheduler->running_process->total_bursts) { // Caso en que lo volvieran a llamar y su deadline no haya llegado
                     scheduler->running_process->state = FINISHED;
                     scheduler->running_process->finished_burst = 1; // Marco que terminó su ráfaga
                     terminate_running_process(scheduler);
-                } else { // Si le quedan, va a pasar a WAITING
-                    scheduler->running_process->state = WAITING;
-                    scheduler->running_process->remaining_io = scheduler->running_process->io_wait; // Reseteo el tiempo de I/O
-                    scheduler->running_process->interruptions++; // Como no se si cuando termina su ultima rafaga suma una interrupcion, lo sumo solo en este caso
-                    scheduler->running_process->finished_burst = 1; // Marco que terminó su ráfaga
-                    take_out_running_process(scheduler);
-                }
-            } else if (scheduler->running_process->remaining_quantum <= 0) { // Se acabó su quantum (-> READY)
-                scheduler->running_process->state = READY;
-                scheduler->running_process->queue = 1; // Como sale por quantum voy a forzar que entre a LOW
-                scheduler->running_process->finished_quantum = 1; // Marco que terminó su quantum
-                take_out_running_process(scheduler);
-            } else { // Otro proceso debe entrar por evento (-> READY)
-                // Recorrido de Eventos
-                if (scheduler->active_event != NULL) {
-                    if (scheduler->active_event->pid != scheduler->running_process->pid) {
-                        scheduler->running_process->state = READY;
-                        scheduler->running_process->interruptions++; // Este si cuenta como interrupción
-                        scheduler->running_process->max_priority = 1; // Le doy máxima prioridad para que entre primero a HIGH
-                        scheduler->running_process->queue = 0; // Como sale por evento, vuelve a HIGH
+                } else if (scheduler->running_process->remaining_burst <= 0) { // Termino su CPU burst (-> WAITING o FINISHED)
+                    scheduler->running_process->bursts_completed++; // Revisar si aumenta el n° de interrupciones y rafagas, si no, editar
+                    // scheduler->running_process->interruptions++; // En ambos casos sale de CPU asi que asumo cuentan como interrupciones
+                    // Si terminó todas sus rafagas pasará a FINISHED
+                    if (scheduler->running_process->bursts_completed >= scheduler->running_process->total_bursts) {
+                        scheduler->running_process->state = FINISHED;
+                        scheduler->running_process->finished_burst = 1; // Marco que terminó su ráfaga
+                        terminate_running_process(scheduler);
+                    } else { // Si le quedan, va a pasar a WAITING
+                        scheduler->running_process->state = WAITING;
+                        scheduler->running_process->remaining_io = scheduler->running_process->io_wait ; // Reseteo el tiempo de I/O
+                        scheduler->running_process->interruptions++; // Como no se si cuando termina su ultima rafaga suma una interrupcion, lo sumo solo en este caso
+                        scheduler->running_process->finished_burst = 1; // Marco que terminó su ráfaga
                         take_out_running_process(scheduler);
                     }
+                } else if (scheduler->running_process->remaining_quantum <= 0) { // Se acabó su quantum (-> READY)
+                    scheduler->running_process->state = READY;
+                    scheduler->running_process->queue = 1; // Como sale por quantum voy a forzar que entre a LOW
+                    scheduler->running_process->finished_quantum = 1; // Marco que terminó su quantum
+                    take_out_running_process(scheduler);
+                } else { // Otro proceso debe entrar por evento (-> READY)
+                    // Recorrido de Eventos
+                    if (scheduler->active_event != NULL) {
+                        if (scheduler->active_event->pid != scheduler->running_process->pid) {
+                            scheduler->running_process->state = READY;
+                            scheduler->running_process->interruptions++; // Este si cuenta como interrupción
+                            scheduler->running_process->max_priority = 1; // Le doy máxima prioridad para que entre primero a HIGH
+                            scheduler->running_process->queue = 0; // Como sale por evento, vuelve a HIGH
+                            take_out_running_process(scheduler);
+                        }
+                    }
                 }
+            }
+            if (scheduler->running_process != NULL) {
+                scheduler->running_process->remaining_burst--;
+                scheduler->running_process->remaining_quantum--;
             }
         }
         // Ingreso proceso saliente a las colas
@@ -84,12 +91,16 @@ int main(int argc, char* argv[]) {
                 in_queue(scheduler->low_queue, scheduler->out_process);
             }
             scheduler->out_process = NULL;
+        } else {
+            // Termino tiempo de inicio (ingresa automaticamente a HIGH)
+            start_processes(scheduler);
+            // Subir proceso a HIGH si se cumple el requisito
+            if (scheduler->added_to_queue <= 0) { // Solo si no se cumplieron los pasos anteriores
+                upqueue_processes(scheduler);
+                scheduler->added_to_queue = 0; // Reseteo el contador
+            }
         }
-        // Termino tiempo de inicio (ingresa automaticamente a HIGH)
-        start_processes(scheduler);
-        // Subir proceso a HIGH si se cumple el requisito
-        upqueue_processes(scheduler);
-        // Recalcular el valor de prioridad de todos los procesos en colas
+            // Recalcular el valor de prioridad de todos los procesos en colas
         update_queue_priorities(scheduler->high_queue, scheduler->current_tick);
         update_queue_priorities(scheduler->low_queue, scheduler->current_tick);
         // Ingresar proceso a la CPU

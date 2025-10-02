@@ -20,6 +20,7 @@ Scheduler* create_scheduler(int q_parameter, int n_events) {
     new_scheduler->active_event = NULL;
     new_scheduler->event_count = n_events;
     new_scheduler->triggered_events = 0;
+    new_scheduler->added_to_queue = 0;
     return new_scheduler;
 }
 
@@ -73,9 +74,9 @@ void terminate_running_process(Scheduler* scheduler) {
     if (scheduler->running_process->already_finished == 0) {
         scheduler->running_process->already_finished = 1;
         if (scheduler->running_process->state == FINISHED) { // Asumo que si se murio entonces no ejecuto nada
-            scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time + 1;
+            scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time - 1;
         } else if (scheduler->running_process->state == DEAD) {
-            scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time + 1;
+            scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time - 1;
         }
     } else {
         scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time;
@@ -110,14 +111,14 @@ void update_io_processes(Scheduler* scheduler) {
     for (int i = 0; i < scheduler->process_count; i++) {
         current_process = scheduler->all_processes[i];
         if (current_process->state == WAITING || current_process->state == READY) {// Toca solo los procesos en estado waiting
+            if (scheduler->current_tick > current_process->start_time) {
+                current_process->waiting_time++; // Suma tiempo solo si el proceso ya se inicializó
+            }
             if (current_process->state == WAITING) {
                 current_process->remaining_io--;
                 if (current_process->remaining_io <= 0) {
                     current_process->state = READY;
                 }
-            }
-            if (scheduler->current_tick > current_process->start_time) {
-                current_process->waiting_time++; // Suma tiempo solo si el proceso ya se inicializó
             }
         }
     }
@@ -129,6 +130,7 @@ void start_processes(Scheduler* scheduler) {
     for (int i = 0; i < scheduler->process_count; i++) {
         current_process = scheduler->all_processes[i];
         if (current_process->start_time == scheduler->current_tick) {
+            scheduler->added_to_queue++;
             in_queue(scheduler->high_queue, current_process); // Cuando el proceso entre a la cola por primera vez lo hará a HIGH
             current_process->quantum = scheduler->high_queue->quantum; // Se le asigna el quantum de la cola HIGH
             current_process->queue = 0;

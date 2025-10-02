@@ -69,9 +69,6 @@ void update_process_priority(Process* process, int current_tick) {
 
 void start_running_process(Process* process, int quantum, int current_tick) {
     process->state = RUNNING;
-    if (process->response_time == -1) {
-        process->response_time = current_tick - process->start_time + 1;
-    }
     if (process->finished_burst == 0) { // Si la ultima vez acabó su burst, el quantum no se resetea
         if (process->finished_quantum == 1) { // Si la ultima vez acabó su quantum, el quantum se resetea, para asegurar caso borde por evento
             process->remaining_quantum = quantum;
