@@ -114,6 +114,16 @@ Process* dequeue_highest_priority(Queue* queue) {
     }
 }
 
+int compare_process_priority(const void* a, const void* b) {
+    Process* pa = *(Process**)a;
+    Process* pb = *(Process**)b;
+    if (pa->priority > pb->priority || (pa->priority == pb->priority && pa->pid < pb->pid)) { // Mayor prioridad primero, y en caso de empate menor PID primero
+        return -1;
+    } else { 
+        return 1;
+    }
+}
+
 void rearrange_queue(Queue* queue) {
     if (is_empty(queue)) return;
     // Crear un array temporal para almacenar los procesos
@@ -127,7 +137,7 @@ void rearrange_queue(Queue* queue) {
         remove_from_queue(queue, current);
         if (current->max_priority) {
             // Insertar al inicio
-            first_node = current; // Guardo para insertarlo al final y no moleste con el resto del ordenamiento
+            first_node = current; // Guardo para insertarlo al principio y no moleste con el resto del ordenamiento
             current->max_priority = 0; // Resetear el flag
         } else {
             processes[index] = current;
@@ -135,42 +145,18 @@ void rearrange_queue(Queue* queue) {
         }
         current = next;
     }
-    // Ordenamiento por inserción - base de primera inserción
-    Process* prev;
-    in_queue(queue, processes[0]);
-    for (int i = 1; i < index; i++) {
-        // Recorro la cola
-        current = queue->head;
-        prev = NULL;
-        int inserted = 0;
-        while (current) {
-            if ((processes[i]->priority == current->priority && processes[i]->pid < current->pid) || (processes[i]->priority < current->priority)) {
-                if (prev == NULL) {
-                    processes[i]->next = queue->head;
-                    queue->head = processes[i];
-                } else {
-                    prev->next = processes[i];
-                    processes[i]->next = current;
-                }
-                inserted = 1;
-                break;
-            }
-            prev = current;
-            current = current->next;
-        }
-        if (!inserted) { // Insercion al final
-            in_queue(queue, processes[i]);
-        }
-        else {
-            queue->size++;
-        }
-    }
+    // Ordenamiento con Qsort para orden inverso
+    qsort(processes, index, sizeof(Process*), compare_process_priority);
+    
     // Si es que existia el nodo con maxima prioridad
     if (first_node) {
-        first_node->next = queue->head;
-        queue->head = first_node;
-        queue->size++;
+        in_queue(queue, first_node);
     }
+    // Reconstruccion de la cola
+    for (int i = 0; i < index; i++) {
+        in_queue(queue, processes[i]);
+    }
+
     free(processes);
     return;
 }
