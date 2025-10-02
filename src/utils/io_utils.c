@@ -128,6 +128,9 @@ void write_output_file(const char* filename, Scheduler* scheduler) {
             case WAITING: state_str = "WAITING"; break;
             default: state_str = "UNKNOWN";
         }
+        if (process->response_time == -1) {
+            process->response_time = 0; // Si nunca se ejecutó, response time es 0
+        }
 
         fprintf(file, "%s,%d,%s,%d,%d,%d,%d",
             process->name,

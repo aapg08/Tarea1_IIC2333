@@ -62,6 +62,9 @@ void remove_dead_processes(Scheduler* scheduler, Queue* queue) {
         if (current_node->deadline <= scheduler->current_tick) {
             current_node->state = DEAD;
             current_node->turnaround_time = scheduler->current_tick - current_node->start_time;
+            if (scheduler->running_process->response_time == -1) { // en caso de que no haya alcanzado a ejecutar, igual debo setearlo en 0
+                scheduler->running_process->response_time = 0;
+            }
             scheduler->finished_count++;
             remove_from_queue(queue, current_node);
         }
@@ -73,14 +76,12 @@ void remove_dead_processes(Scheduler* scheduler, Queue* queue) {
 void terminate_running_process(Scheduler* scheduler) {
     if (scheduler->running_process->already_finished == 0) {
         scheduler->running_process->already_finished = 1;
-        if (scheduler->running_process->state == FINISHED) { // Asumo que si se murio entonces no ejecuto nada
-            scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time - 1;
-        } else if (scheduler->running_process->state == DEAD) {
-            scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time - 1;
-        }
-    } else {
-        scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time;
     }
+    if (scheduler->running_process->response_time <= -1) { // en caso de que no haya alcanzado a ejecutar, igual debo setearlo en 0
+        scheduler->running_process->response_time = 0;
+    }
+    scheduler->running_process->turnaround_time = scheduler->current_tick - scheduler->running_process->start_time;
+    printf("Turnaround: %d\n", scheduler->running_process->turnaround_time);
     scheduler->finished_count++;
     scheduler->running_process = NULL;
     return;
@@ -108,17 +109,26 @@ void find_active_event(Scheduler* scheduler) {
 
 void update_io_processes(Scheduler* scheduler) {
     Process* current_process = NULL;
+    printf("Procesos en estado WAITING o READY:\n");
     for (int i = 0; i < scheduler->process_count; i++) {
         current_process = scheduler->all_processes[i];
         if (current_process->state == WAITING || current_process->state == READY) {// Toca solo los procesos en estado waiting
-            if (scheduler->current_tick > current_process->start_time) {
-                current_process->waiting_time++; // Suma tiempo solo si el proceso ya se inicializó
-            }
-            if (current_process->state == WAITING) {
+            printf("Proceso con pid %d\n", current_process->pid);
+            if (current_process->state == WAITING){
                 current_process->remaining_io--;
+                printf("i/o restante: %d\n", current_process->remaining_io);
                 if (current_process->remaining_io <= 0) {
+                    printf("proceso pasa a estado READY\n");
                     current_process->state = READY;
+                /*} else {
+                    current_process->remaining_io--;
+                    printf("i/o restante: %d\n", current_process->remaining_io);*/
                 }
+            }
+            if (scheduler->current_tick > current_process->start_time) {
+                printf("proceso %d espera 1 tick\n", current_process->pid);
+                current_process->waiting_time++; // Suma tiempo solo si el proceso ya se inicializó
+                printf("Proceso con waiting time actual: %d\n", current_process->waiting_time);
             }
         }
     }
@@ -130,11 +140,13 @@ void start_processes(Scheduler* scheduler) {
     for (int i = 0; i < scheduler->process_count; i++) {
         current_process = scheduler->all_processes[i];
         if (current_process->start_time == scheduler->current_tick) {
+            printf("Proceso %d termina su tiempo de inicio y es agregado a la cola HIGH\n", current_process->pid);
             scheduler->added_to_queue++;
             in_queue(scheduler->high_queue, current_process); // Cuando el proceso entre a la cola por primera vez lo hará a HIGH
             current_process->quantum = scheduler->high_queue->quantum; // Se le asigna el quantum de la cola HIGH
             current_process->queue = 0;
             current_process->remaining_burst = current_process->burst_time; // Seteo el burst time
+            current_process->remaining_quantum = current_process->quantum;
         }
     }
     return;
@@ -148,6 +160,7 @@ void upqueue_processes(Scheduler* scheduler) {
         if ((current_node->deadline * 2) < (scheduler->current_tick - current_node->last_CPU_out)) { 
             remove_from_queue(scheduler->low_queue, current_node);
             in_queue(scheduler->high_queue, current_node);
+            printf("Proceso %d ya cumplio el requisito y por lo tanto sube a cola HIGH\n", current_node->pid);
             current_node->quantum = scheduler->high_queue->quantum; // Se le asigna el quantum de la cola HIGH
             current_node->queue = 0;
         }
@@ -170,6 +183,7 @@ void start_event_process(Scheduler* scheduler) {
     start_process_from_queue(scheduler->low_queue, current_process);
     // Si no está en ninguna cola es porque termino o murió; si terminó va a salir immediatamente de la CPU por remaining time <= 0, y si murió tambien sale immediatamente por deadline
     if (current_process->state == FINISHED || current_process->state == DEAD) {
+        printf("Proceso %d previamente finalizado es enviado a la CPU\n", current_process->pid);
         current_process->state = RUNNING;
         scheduler->finished_count--; // Como lo voy a "revivir", momentaneamente lo saco de la cuenta de procesos terminados
     }
